@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Modal, Input, Button, Table, Tabs, message, Select } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { TabsProps } from 'antd';
+import { floorFlowToExcel, excelToFloorFlow, downloadExcel } from '../utils/excelUtils';
 
 interface FloorFlow {
   floor: string;
@@ -135,6 +136,34 @@ export default function ElevatorFlowConfig({
     message.success('模板删除成功');
   };
 
+  const handleExportExcel = () => {
+    const workbook = floorFlowToExcel(flowData);
+    const filename = `楼层客流配置_${new Date().toLocaleDateString()}.xlsx`;
+    try {
+      downloadExcel(workbook, filename);
+      message.success('导出成功');
+    } catch (error: unknown) {
+      message.error('导出失败');
+      console.error('Export failed:', error);
+    }
+  };
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const floorFlows = await excelToFloorFlow(file);
+      setFlowData(floorFlows);
+      message.success('导入成功');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '导入失败');
+    }
+
+    // Clear the input value so the same file can be selected again
+    event.target.value = '';
+  };
+
   const items: TabsProps['items'] = [
     {
       key: 'config',
@@ -152,6 +181,25 @@ export default function ElevatorFlowConfig({
                   value: t.id,
                 }))}
               />
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => document.getElementById('importExcel')?.click()}
+              >
+                导入Excel
+              </Button>
+              <input
+                type="file"
+                id="importExcel"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                style={{ display: 'none' }}
+              />
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportExcel}
+              >
+                导出Excel
+              </Button>
               <Input
                 placeholder="新模板名称"
                 value={templateName}

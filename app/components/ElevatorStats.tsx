@@ -36,12 +36,13 @@ export default function ElevatorStats({
     data: utilizationData,
     xField: 'elevator',
     yField: 'utilization',
-    color: ({ elevator }: DataRecord) => {
-      return elevator === '10号电梯' ? '#ff4d4f' : '#52c41a';
-    },
-    columnStyle: {
-      radius: [4, 4, 0, 0],
-      cursor: 'pointer',
+    color: '#52c41a',
+    columnStyle: ({ utilization }: DataRecord) => {
+      return {
+        fill: utilization === 100 ? '#f5222d' : '#52c41a',
+        radius: [4, 4, 0, 0],
+        cursor: 'pointer',
+      };
     },
     label: {
       position: 'top',
@@ -49,6 +50,7 @@ export default function ElevatorStats({
         fill: '#666',
         fontSize: 12,
       },
+      formatter: (v: { utilization: number }) => `${v.utilization}%`,
     },
     xAxis: {
       label: {
@@ -152,7 +154,6 @@ export default function ElevatorStats({
       <SimHistory
         visible={historyVisible}
         onClose={() => setHistoryVisible(false)}
-        onReplay={(record) => console.log('Replay:', record)}
         onExport={(record) => console.log('Export:', record)}
         onDelete={(record) => console.log('Delete:', record)}
         onApplyConfig={(record) => console.log('Apply Config:', record)}

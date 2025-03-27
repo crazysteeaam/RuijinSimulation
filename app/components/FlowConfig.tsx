@@ -120,8 +120,22 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
 
   const handlePatientTypeRatioChange = (specialTypeId: string, ratio: number | null) => {
     if (ratio === null) return;
+
     const newTypes = [...patientTypes];
     const index = newTypes.findIndex(t => t.specialTypeId === specialTypeId);
+    
+    // 计算其他特殊类型的总和
+    const otherTypesSum = newTypes.reduce((sum, type) => 
+      type.specialTypeId !== specialTypeId ? (sum + (type.ratio || 0)) : sum, 
+      0
+    );
+
+    // 检查总和是否超过100%
+    if (otherTypesSum + ratio > 100) {
+      message.error('特殊类型比例总和不能超过100%');
+      return;
+    }
+
     if (index >= 0) {
       newTypes[index] = { ...newTypes[index], ratio };
     } else {
@@ -272,8 +286,10 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
               />
             </div>
           ))}
-          <div className="text-xs text-gray-500 mt-2">
-            注：比例表示该类型患者在总患者中的占比
+          <div className="text-xs text-gray-500 mt-2 space-y-1">
+            <div>注：</div>
+            <div>1. 比例表示该类型患者在总患者中的占比</div>
+            <div>2. 特殊类型之和必须小于等于100%，普通类型的百分比为1-特殊类型之和</div>
           </div>
         </div>
       )

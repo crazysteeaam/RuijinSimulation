@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Layout, Radio, Card } from 'antd';
+import { Layout, Radio, Card, Button } from 'antd';
+import { HomeOutlined } from '@ant-design/icons';
 import ElevatorConfig from '../components/ElevatorConfig';
 import ElevatorPoints from '../components/ElevatorPoints';
 import ElevatorStats from '../components/ElevatorStats';
+import { useRouter } from 'next/navigation';
 
 const { Content } = Layout;
 
+// 模拟电梯利用率数据
 const mockUtilizationData = [
   { elevator: '10号电梯', utilization: 100 },
   { elevator: '11号电梯', utilization: 65 },
@@ -16,6 +19,7 @@ const mockUtilizationData = [
 ];
 
 export default function ElevatorPage() {
+  const router = useRouter();
   const [configValue, setConfigValue] = useState(1000);
   const [modelType, setModelType] = useState<'real' | 'single' | 'building'>('real');
 
@@ -35,16 +39,14 @@ export default function ElevatorPage() {
                   onSpeedChange={setConfigValue}
                 />
               </div>
-              <div className="h-full">
-                <ElevatorPoints />
-              </div>
+              <ElevatorPoints modelType={modelType} />
             </div>
             <div className="w-[400px] h-full overflow-auto bg-transparent">
               <ElevatorStats
                 currentCapacity={220}
-                waitingCount={25}
+                waitingCount={15}
                 utilizationData={mockUtilizationData}
-                averageWaitTime="00:12:23"
+                averageWaitTime="00:02:00"
               />
             </div>
           </div>
@@ -64,6 +66,16 @@ export default function ElevatorPage() {
                 </Radio.Group>
               </div>
             </Card>
+          </div>
+          <div className="fixed left-4 bottom-4 z-50">
+            <Button 
+              type="primary"
+              icon={<HomeOutlined />}
+              onClick={() => router.push('/')}
+              size="large"
+            >
+              退出仿真
+            </Button>
           </div>
         </div>
       </Content>

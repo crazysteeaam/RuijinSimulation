@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Form, Input, Button, InputNumber, Select, Radio, RadioChangeEvent } from 'antd';
+import { Modal, Form, Input, Button, InputNumber, Select, Radio, RadioChangeEvent, message } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
 interface TimeRange {
@@ -73,8 +73,32 @@ export default function RoomConfig({
 
   const handleTimeChange = (index: number, type: 'start' | 'end', value: string) => {
     const newRanges = [...timeRanges];
+    const range = newRanges[index];
+    
+    // 验证时间格式
+    if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+      message.error('请输入正确的时间格式，如 09:30');
+      return;
+    }
+
+    // 转换为分钟数进行比较
+    const getMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const startMinutes = type === 'start' ? getMinutes(value) : getMinutes(range.start);
+    const endMinutes = type === 'end' ? getMinutes(value) : getMinutes(range.end);
+
+    // 验证结束时间是否大于开始时间
+    if (endMinutes <= startMinutes) {
+      message.error('结束时间必须大于开始时间');
+      return;
+    }
+
+    // 更新时间
     newRanges[index] = {
-      ...newRanges[index],
+      ...range,
       [type]: value,
     };
     setTimeRanges(newRanges);
@@ -210,7 +234,8 @@ export default function RoomConfig({
           <div>1. 处理时间范围为1-3600秒</div>
           <div>2. 时间格式为 HH:mm，如 09:30</div>
           <div>3. 每个时间段不能重叠</div>
-          <div>4. 默认为普通窗口，如需设置特殊窗口类型请选择&quot;特殊窗口&quot;</div>
+          <div>4. 默认为普通窗口，如需设置特殊窗口类型请选择"特殊窗口"</div>
+          <div>5. 所有时间段均为当天时间，结束时间必须大于开始时间</div>
         </div>
       </Form>
     </Modal>

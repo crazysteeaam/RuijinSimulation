@@ -1,71 +1,48 @@
-import { useState, useEffect } from 'react';
-import { Button } from 'antd';
-import { LogoutOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
-import SpeedConfig from './SpeedConfig';
+import { Card, InputNumber, Typography } from 'antd';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 
-export interface GlobalConfigProps {
+const { Text } = Typography;
+
+interface GlobalConfigProps {
   speed: number;
-  onSpeedChange: (value: number) => void;
+  onSpeedChange: Dispatch<SetStateAction<number>>;
   className?: string;
 }
 
-export default function GlobalConfig({ speed, onSpeedChange, className }: GlobalConfigProps) {
-  const router = useRouter();
-  const [currentTime, setCurrentTime] = useState('08:00:00');
+export default function GlobalConfig({
+  speed,
+  onSpeedChange,
+  className
+}: GlobalConfigProps) {
+  const [currentTime, setCurrentTime] = useState(dayjs());
 
-  // 模拟更新当前时间
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(prev => {
-        const [hours, minutes, seconds] = prev.split(':').map(Number);
-        let newSeconds = seconds + 1;
-        let newMinutes = minutes;
-        let newHours = hours;
-
-        if (newSeconds >= 60) {
-          newSeconds = 0;
-          newMinutes += 1;
-        }
-        if (newMinutes >= 60) {
-          newMinutes = 0;
-          newHours += 1;
-        }
-        if (newHours >= 24) {
-          newHours = 0;
-        }
-
-        return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}:${String(newSeconds).padStart(2, '0')}`;
-      });
-    }, 1000 / (speed || 1));
+      setCurrentTime(dayjs());
+    }, 1000);
 
     return () => clearInterval(timer);
-  }, [speed]);
-
-  const handleExit = () => {
-    router.push('/');
-  };
+  }, []);
 
   return (
-    <div className={className}>
-      <div className="mb-4">
-        <SpeedConfig
-          speed={speed}
-          currentTime={currentTime}
-          onSpeedChange={onSpeedChange}
-        />
+    <Card size="small" className={className}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <Text>仿真速度：</Text>
+          <InputNumber
+            min={1}
+            max={100}
+            value={speed}
+            onChange={value => onSpeedChange(value || 1)}
+            addonAfter="倍"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Text>当前时间：</Text>
+          <Text>{currentTime.format('HH:mm:ss')}</Text>
+        </div>
       </div>
-
-      <div className="fixed left-4 bottom-4">
-        <Button
-          type="text"
-          icon={<LogoutOutlined />}
-          onClick={handleExit}
-          className="text-left"
-        >
-          退出仿真
-        </Button>
-      </div>
-    </div>
+    </Card>
   );
 } 

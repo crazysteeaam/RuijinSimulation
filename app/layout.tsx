@@ -6,8 +6,8 @@ import 'antd/dist/reset.css';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "工厂监控系统",
-  description: "工厂监控系统",
+  title: "瑞金医院仿真推演系统",
+  description: "瑞金医院仿真推演系统",
 };
 
 export default function RootLayout({

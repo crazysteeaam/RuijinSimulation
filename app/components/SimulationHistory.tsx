@@ -1,5 +1,5 @@
 import { Modal, Table, Button, Space, Tooltip, Input, Tag } from 'antd';
-import { PlayCircleOutlined, ExportOutlined, DeleteOutlined, SettingOutlined, EditOutlined } from '@ant-design/icons';
+import { ExportOutlined, DeleteOutlined, SettingOutlined, EditOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useState } from 'react';
 
@@ -16,7 +16,6 @@ export interface SimulationRecord {
 export interface SimulationHistoryProps {
   visible: boolean;
   onClose: () => void;
-  onReplay: (record: SimulationRecord) => void;
   onExport: (record: SimulationRecord) => void;
   onDelete: (record: SimulationRecord) => void;
   onApplyConfig: (record: SimulationRecord) => void;
@@ -26,7 +25,6 @@ export interface SimulationHistoryProps {
 export default function SimulationHistory({
   visible,
   onClose,
-  onReplay,
   onExport,
   onDelete,
   onApplyConfig,
@@ -151,7 +149,7 @@ export default function SimulationHistory({
     {
       title: '操作',
       key: 'action',
-      width: 280,
+      width: 200,
       render: (_: unknown, record: SimulationRecord) => (
         <Space size="small">
           <Tooltip title="应用配置">
@@ -161,15 +159,6 @@ export default function SimulationHistory({
               onClick={() => onApplyConfig(record)}
             >
               应用配置
-            </Button>
-          </Tooltip>
-          <Tooltip title="回放">
-            <Button
-              type="text"
-              icon={<PlayCircleOutlined />}
-              onClick={() => onReplay(record)}
-            >
-              回放
             </Button>
           </Tooltip>
           <Tooltip title="导出报告">

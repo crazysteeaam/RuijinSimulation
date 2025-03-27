@@ -25,11 +25,6 @@ export default function RightPanel() {
     setHistoryVisible(false);
   };
 
-  const handleReplay = (record: SimulationRecord) => {
-    message.info(`开始回放仿真记录：${record.templateName || '未命名配置'}`);
-    setHistoryVisible(false);
-  };
-
   const handleExport = (record: SimulationRecord) => {
     message.success(`导出仿真报告：${record.templateName || '未命名配置'}`);
   };
@@ -53,7 +48,6 @@ export default function RightPanel() {
       <SimulationHistory
         visible={historyVisible}
         onClose={() => setHistoryVisible(false)}
-        onReplay={handleReplay}
         onExport={handleExport}
         onDelete={handleDelete}
         onApplyConfig={handleApplyConfig}
