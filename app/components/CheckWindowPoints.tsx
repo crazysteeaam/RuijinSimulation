@@ -44,7 +44,7 @@ export default function CheckWindowPoints({ points, specialWindowTypes, onWindow
   const getSpecialTypeLabel = (typeId?: string) => {
     if (!typeId) return null;
     const type = specialWindowTypes.find(t => t.id === typeId);
-    return type?.label;
+    return type?.name;
   };
 
   return (

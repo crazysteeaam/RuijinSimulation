@@ -40,8 +40,8 @@ export default function ElevatorStats({
     columnStyle: ({ utilization }: DataRecord) => {
       return {
         fill: utilization === 100 ? '#f5222d' : '#52c41a',
-        radius: [4, 4, 0, 0],
-        cursor: 'pointer',
+      radius: [4, 4, 0, 0],
+      cursor: 'pointer',
       };
     },
     label: {

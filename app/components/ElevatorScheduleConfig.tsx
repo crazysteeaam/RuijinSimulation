@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, Select, Button, InputNumber, Tabs, TimePicker, Space, Checkbox } from 'antd';
+import { Modal, Select, Button, InputNumber, Tabs, Space, Checkbox, TimePicker } from 'antd';
 import type { TabsProps } from 'antd';
 import dayjs from 'dayjs';
 
@@ -9,6 +9,11 @@ interface ElevatorScheduleConfigProps {
   elevatorId: string;
   onSave: (config: ElevatorConfig) => void;
   initialConfig?: ElevatorConfig;
+}
+
+interface TimeInterval {
+  time: string;
+  floors: string[];
 }
 
 interface TimeRange {
@@ -35,22 +40,42 @@ const generateFloors = () => {
   return floors;
 };
 
-const DEFAULT_TIME_RANGES: TimeRange[] = [
+const DEFAULT_INTERVALS: TimeInterval[] = [
   {
-    start: '06:30',
-    end: '12:00',
+    time: '12:00',
     floors: ['1F', '2F', '3F', '5F', '8F', '10F', '12F', '14F', '15F', '16F', '18F', '20F', '22F']
-  },
-  {
-    start: '12:00',
-    end: '06:30',
-    floors: ['1F', '2F', '3F']
   }
 ];
+
+const DEFAULT_LAST_INTERVAL: TimeInterval = {
+  time: '06:30',
+  floors: ['1F', '2F', '3F', '5F', '8F', '10F', '12F', '14F', '15F', '16F', '18F', '20F', '22F']
+};
 
 const ALL_FLOORS = generateFloors().map(f => f.value);
 const EVEN_FLOORS = ALL_FLOORS.filter(f => parseInt(f) % 2 === 0);
 const ODD_FLOORS = ALL_FLOORS.filter(f => parseInt(f) % 2 === 1);
+
+const calculateTimeRanges = (intervals: TimeInterval[], lastInterval: TimeInterval): TimeRange[] => {
+  const ranges: TimeRange[] = [];
+  let currentTime = dayjs('06:30', 'HH:mm');
+  const sortedIntervals = [...intervals].sort((a, b) => dayjs(a.time, 'HH:mm').diff(dayjs(b.time, 'HH:mm')));
+  sortedIntervals.forEach((interval) => {
+    const endTime = dayjs(interval.time, 'HH:mm');
+    ranges.push({
+      start: currentTime.format('HH:mm'),
+      end: endTime.format('HH:mm'),
+      floors: interval.floors
+    });
+    currentTime = endTime;
+  });
+  ranges.push({
+    start: currentTime.format('HH:mm'),
+    end: '06:30',
+    floors: lastInterval.floors
+  });
+  return ranges;
+};
 
 export default function ElevatorScheduleConfig({
   visible,
@@ -60,32 +85,49 @@ export default function ElevatorScheduleConfig({
   initialConfig
 }: ElevatorScheduleConfigProps) {
   const [activeTab, setActiveTab] = useState('schedule');
-  const [timeRanges, setTimeRanges] = useState<TimeRange[]>(DEFAULT_TIME_RANGES);
+  const [intervals, setIntervals] = useState<TimeInterval[]>(DEFAULT_INTERVALS);
+  const [lastInterval, setLastInterval] = useState<TimeInterval>(DEFAULT_LAST_INTERVAL);
   const [initialFloor, setInitialFloor] = useState(initialConfig?.initialFloor || 1);
 
   useEffect(() => {
     if (initialConfig) {
-      setTimeRanges(initialConfig.timeRanges);
+      const newIntervals: TimeInterval[] = [];
+      initialConfig.timeRanges.forEach((range, index) => {
+        if (index < initialConfig.timeRanges.length - 1) {
+          newIntervals.push({
+            time: range.end,
+            floors: range.floors
+          });
+        }
+      });
+      setIntervals(newIntervals);
+      setLastInterval({
+        time: '06:30',
+        floors: initialConfig.timeRanges[initialConfig.timeRanges.length - 1].floors
+      });
       setInitialFloor(initialConfig.initialFloor);
     } else {
-      setTimeRanges(DEFAULT_TIME_RANGES);
+      setIntervals(DEFAULT_INTERVALS);
+      setLastInterval(DEFAULT_LAST_INTERVAL);
       setInitialFloor(1);
     }
   }, [initialConfig]);
 
-  const handleTimeChange = (time: dayjs.Dayjs | null) => {
+  const handleTimeChange = (index: number, time: dayjs.Dayjs | null) => {
     if (!time) return;
-    const timeStr = time.format('HH:mm');
-    setTimeRanges(prev => [
-      { ...prev[0], end: timeStr },
-      { ...prev[1], start: timeStr }
-    ]);
+    setIntervals(prev => prev.map((interval, i) =>
+      i === index ? { ...interval, time: time.format('HH:mm') } : interval
+    ));
   };
 
   const handleFloorsChange = (index: number, floors: string[]) => {
-    setTimeRanges(prev => prev.map((range, i) => 
-      i === index ? { ...range, floors } : range
+    setIntervals(prev => prev.map((interval, i) =>
+      i === index ? { ...interval, floors } : interval
     ));
+  };
+
+  const handleLastIntervalFloorsChange = (floors: string[]) => {
+    setLastInterval(prev => ({ ...prev, floors }));
   };
 
   const handleQuickSelect = (index: number, type: 'all' | 'even' | 'odd' | 'none') => {
@@ -107,81 +149,153 @@ export default function ElevatorScheduleConfig({
     handleFloorsChange(index, selectedFloors);
   };
 
+  const handleLastIntervalQuickSelect = (type: 'all' | 'even' | 'odd' | 'none') => {
+    let selectedFloors: string[] = [];
+    switch (type) {
+      case 'all':
+        selectedFloors = ALL_FLOORS;
+        break;
+      case 'even':
+        selectedFloors = EVEN_FLOORS;
+        break;
+      case 'odd':
+        selectedFloors = ODD_FLOORS;
+        break;
+      case 'none':
+        selectedFloors = [];
+        break;
+    }
+    handleLastIntervalFloorsChange(selectedFloors);
+  };
+
+  const handleAddInterval = () => {
+    if (intervals.length >= 5) {
+      return;
+    }
+    setIntervals(prev => [...prev, { time: '12:00', floors: [] }]);
+  };
+
+  const handleRemoveInterval = (index: number) => {
+    if (intervals.length === 1) return;
+    setIntervals(prev => prev.filter((_, i) => i !== index));
+  };
+
   const renderFloorSelect = (index: number) => (
-    <div>
-      <div className="mb-2 flex justify-between items-center">
-        <Space>
-          <Checkbox
-            checked={timeRanges[index].floors.length === ALL_FLOORS.length}
-            indeterminate={timeRanges[index].floors.length > 0 && timeRanges[index].floors.length < ALL_FLOORS.length}
-            onChange={(e) => handleQuickSelect(index, e.target.checked ? 'all' : 'none')}
-          >
-            全选
-          </Checkbox>
-          <Button size="small" onClick={() => handleQuickSelect(index, 'even')}>
-            双层
-          </Button>
-          <Button size="small" onClick={() => handleQuickSelect(index, 'odd')}>
-            单层
-          </Button>
-          <Button size="small" onClick={() => handleQuickSelect(index, 'none')}>
-            清空
-          </Button>
-        </Space>
-      </div>
+    <div style={{ marginTop: 8 }}>
+      <Space size={8} style={{ marginBottom: 4 }}>
+        <Checkbox
+          checked={intervals[index].floors.length === ALL_FLOORS.length}
+          indeterminate={intervals[index].floors.length > 0 && intervals[index].floors.length < ALL_FLOORS.length}
+          onChange={(e) => handleQuickSelect(index, e.target.checked ? 'all' : 'none')}
+        >全选</Checkbox>
+        <Button size="small" onClick={() => handleQuickSelect(index, 'even')}>双层</Button>
+        <Button size="small" onClick={() => handleQuickSelect(index, 'odd')}>单层</Button>
+        <Button size="small" onClick={() => handleQuickSelect(index, 'none')}>清空</Button>
+      </Space>
       <Select
         mode="multiple"
         style={{ width: '100%' }}
         placeholder="选择楼层"
-        value={timeRanges[index].floors}
+        value={intervals[index].floors}
         onChange={(floors) => handleFloorsChange(index, floors)}
         options={generateFloors()}
+        size="small"
       />
     </div>
   );
+
+  const renderLastIntervalFloorSelect = () => (
+    <div style={{ marginTop: 8 }}>
+      <Space size={8} style={{ marginBottom: 4 }}>
+        <Checkbox
+          checked={lastInterval.floors.length === ALL_FLOORS.length}
+          indeterminate={lastInterval.floors.length > 0 && lastInterval.floors.length < ALL_FLOORS.length}
+          onChange={(e) => handleLastIntervalQuickSelect(e.target.checked ? 'all' : 'none')}
+        >全选</Checkbox>
+        <Button size="small" onClick={() => handleLastIntervalQuickSelect('even')}>双层</Button>
+        <Button size="small" onClick={() => handleLastIntervalQuickSelect('odd')}>单层</Button>
+        <Button size="small" onClick={() => handleLastIntervalQuickSelect('none')}>清空</Button>
+      </Space>
+      <Select
+        mode="multiple"
+        style={{ width: '100%' }}
+        placeholder="选择楼层"
+        value={lastInterval.floors}
+        onChange={handleLastIntervalFloorsChange}
+        options={generateFloors()}
+        size="small"
+      />
+    </div>
+  );
+
+  const getTimeRange = (index: number) => {
+    if (index === 0) {
+      return {
+        start: '06:30',
+        end: intervals[0].time
+      };
+    }
+    return {
+      start: intervals[index - 1].time,
+      end: intervals[index].time
+    };
+  };
 
   const items: TabsProps['items'] = [
     {
       key: 'schedule',
       label: '调度配置',
       children: (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-4">
-            <div className="border p-4 rounded">
-              <div className="mb-2">第一时间段</div>
-              <div className="flex items-center gap-4 mb-4">
-                <TimePicker
-                  format="HH:mm"
-                  value={dayjs(timeRanges[0].start, 'HH:mm')}
-                  disabled
-                />
-                <span>至</span>
-                <TimePicker
-                  format="HH:mm"
-                  value={dayjs(timeRanges[0].end, 'HH:mm')}
-                  onChange={handleTimeChange}
-                />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {intervals.map((interval, index) => {
+            const timeRange = getTimeRange(index);
+            return (
+              <div key={index} style={{ border: '1px solid #eee', borderRadius: 6, padding: 12, background: '#fafbfc', marginBottom: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 500, fontSize: 15, marginRight: 12 }}>第{index + 1}时间段</span>
+                  <InputNumber
+                    value={timeRange.start}
+                    disabled
+                    style={{ width: 70, marginRight: 4, background: '#f5f5f5' }}
+                    stringMode
+                  />
+                  <span style={{ margin: '0 4px' }}>至</span>
+                  <TimePicker
+                    format="HH:mm"
+                    value={dayjs(interval.time, 'HH:mm')}
+                    onChange={(time) => handleTimeChange(index, time)}
+                    style={{ width: 90, marginRight: 8 }}
+                    minuteStep={5}
+                    allowClear={false}
+                  />
+                  {intervals.length > 1 && (
+                    <Button
+                      type="text"
+                      danger
+                      size="small"
+                      style={{ marginLeft: 'auto' }}
+                      onClick={() => handleRemoveInterval(index)}
+                    >删除</Button>
+                  )}
+                </div>
+                {renderFloorSelect(index)}
               </div>
-              {renderFloorSelect(0)}
+            );
+          })}
+          {intervals.length < 5 && (
+            <Button
+              type="dashed"
+              onClick={handleAddInterval}
+              style={{ width: '100%', marginTop: 8 }}
+              size="small"
+            >添加时间段</Button>
+          )}
+          <div style={{ border: '1px solid #eee', borderRadius: 6, padding: 12, background: '#fafbfc', marginTop: 8 }}>
+            <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 8 }}>
+              最后一个时间段
+              <span style={{ marginLeft: 8 }}>{intervals[intervals.length - 1].time} 至 次日 06:30</span>
             </div>
-            <div className="border p-4 rounded">
-              <div className="mb-2">第二时间段（至次日）</div>
-              <div className="flex items-center gap-4 mb-4">
-                <TimePicker
-                  format="HH:mm"
-                  value={dayjs(timeRanges[1].start, 'HH:mm')}
-                  disabled
-                />
-                <span>至</span>
-                <TimePicker
-                  format="HH:mm"
-                  value={dayjs(timeRanges[1].end, 'HH:mm')}
-                  disabled
-                />
-                <span className="text-gray-500">（次日）</span>
-              </div>
-              {renderFloorSelect(1)}
-            </div>
+            {renderLastIntervalFloorSelect()}
           </div>
         </div>
       ),
@@ -214,7 +328,8 @@ export default function ElevatorScheduleConfig({
       width={500}
       footer={[
         <Button key="reset" onClick={() => {
-          setTimeRanges(DEFAULT_TIME_RANGES);
+          setIntervals(DEFAULT_INTERVALS);
+          setLastInterval(DEFAULT_LAST_INTERVAL);
           setInitialFloor(1);
         }}>
           重设
@@ -224,7 +339,7 @@ export default function ElevatorScheduleConfig({
             id: elevatorId,
             name: elevatorId,
             initialFloor,
-            timeRanges,
+            timeRanges: calculateTimeRanges(intervals, lastInterval),
           });
           onClose();
         }}>

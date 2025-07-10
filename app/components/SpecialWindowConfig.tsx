@@ -37,12 +37,12 @@ export default function SpecialWindowConfig({
 
       const newType: SpecialWindowType = {
         id: Date.now().toString(),
-        type: values.customType,
-        label: values.customType,
+        name: values.customType,
+        color: '#1890ff'
       };
 
       // 检查是否已存在
-      if (types.some(t => t.label === newType.label)) {
+      if (types.some(t => t.name === newType.name)) {
         Modal.error({ title: '提示', content: '该窗口类型已存在' });
         return;
       }
@@ -60,15 +60,15 @@ export default function SpecialWindowConfig({
       return;
     }
 
-    if (types.some(t => t.label === preset.label)) {
+    if (types.some(t => t.name === preset.label)) {
       Modal.error({ title: '提示', content: '该窗口类型已存在' });
       return;
     }
 
     const newType: SpecialWindowType = {
       id: Date.now().toString(),
-      type: preset.value,
-      label: preset.label,
+      name: preset.label,
+      color: '#1890ff'
     };
 
     setTypes([...types, newType]);
@@ -103,7 +103,7 @@ export default function SpecialWindowConfig({
                 key={type.value}
                 size="small"
                 onClick={() => handleAddPreset(type)}
-                disabled={types.some(t => t.label === type.label)}
+                disabled={types.some(t => t.name === type.label)}
               >
                 {type.label}
               </Button>
@@ -137,7 +137,7 @@ export default function SpecialWindowConfig({
                 key={item.id}
                 className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded"
               >
-                <Tag color="blue">{item.label}</Tag>
+                <Tag color="blue">{item.name}</Tag>
                 <Popconfirm
                   title="确定要删除这个窗口类型吗？"
                   onConfirm={() => handleDelete(item.id)}

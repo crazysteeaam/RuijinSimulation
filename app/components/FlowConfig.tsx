@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Modal, Table, InputNumber, Tabs, Button, Input, Select, message } from 'antd';
+import { Modal, Table, InputNumber, Tabs, Button, Input, Select, message, TimePicker } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { SaveOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SaveOutlined, DeleteOutlined, UploadOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { SpecialWindowType } from '../types/config';
+import { timeRangesToExcel, excelToTimeRanges, downloadExcel } from '../utils/excelUtils';
+import dayjs from 'dayjs';
 
-interface TimeRange {
+export interface TimeRange {
   timeSlot: string;
   meanArrivals: number;
   stdDeviation: number;
 }
 
+interface TimeDistribution {
+  startTime: string;
+  endTime: string;
+  percentage: number;
+}
+
 interface PatientType {
   specialTypeId: string;
-  ratio: number;
+  timeDistributions: TimeDistribution[];
 }
 
 interface FlowTemplate {
@@ -28,6 +36,14 @@ interface FlowConfigProps {
   onSave: (data: TimeRange[], patientTypes: PatientType[]) => void;
   initialData: TimeRange[];
   specialWindowTypes: SpecialWindowType[];
+}
+
+interface QuickInputModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onApply: (value: number) => void;
+  title: string;
+  max: number;
 }
 
 // 预设模板数据
@@ -85,11 +101,49 @@ function saveTemplates(templates: FlowTemplate[]) {
   localStorage.setItem('flowTemplates', JSON.stringify(templates));
 }
 
+const QuickInputModal: React.FC<QuickInputModalProps> = ({
+  visible,
+  onClose,
+  onApply,
+  title,
+  max
+}) => {
+  const [value, setValue] = useState<number | null>(null);
+
+  return (
+    <Modal
+      title={`快捷设置${title}`}
+      open={visible}
+      onCancel={onClose}
+      onOk={() => {
+        if (value !== null) {
+          onApply(value);
+          onClose();
+          setValue(null);
+        }
+      }}
+      okText="应用"
+      cancelText="取消"
+    >
+      <InputNumber
+        min={0}
+        max={max}
+        value={value}
+        onChange={setValue}
+        className="w-full"
+        placeholder={`请输入${title}（0-${max}）`}
+      />
+    </Modal>
+  );
+};
+
 export default function FlowConfig({ visible, onClose, onSave, initialData, specialWindowTypes }: FlowConfigProps) {
   const [data, setData] = useState<TimeRange[]>(initialData);
   const [patientTypes, setPatientTypes] = useState<PatientType[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [savedTemplates, setSavedTemplates] = useState<FlowTemplate[]>([]);
+  const [quickInputVisible, setQuickInputVisible] = useState(false);
+  const [quickInputType, setQuickInputType] = useState<'mean' | 'std' | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -118,29 +172,78 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
     setData(newData);
   };
 
-  const handlePatientTypeRatioChange = (specialTypeId: string, ratio: number | null) => {
-    if (ratio === null) return;
-
+  const handleAddTimeDistribution = (specialTypeId: string) => {
     const newTypes = [...patientTypes];
-    const index = newTypes.findIndex(t => t.specialTypeId === specialTypeId);
+    const typeIndex = newTypes.findIndex(t => t.specialTypeId === specialTypeId);
     
-    // 计算其他特殊类型的总和
-    const otherTypesSum = newTypes.reduce((sum, type) => 
-      type.specialTypeId !== specialTypeId ? (sum + (type.ratio || 0)) : sum, 
-      0
-    );
-
-    // 检查总和是否超过100%
-    if (otherTypesSum + ratio > 100) {
-      message.error('特殊类型比例总和不能超过100%');
-      return;
-    }
-
-    if (index >= 0) {
-      newTypes[index] = { ...newTypes[index], ratio };
+    if (typeIndex === -1) {
+      newTypes.push({
+        specialTypeId,
+        timeDistributions: [{
+          startTime: '07:00',
+          endTime: '21:00',
+          percentage: 100
+        }]
+      });
     } else {
-      newTypes.push({ specialTypeId, ratio });
+      const currentDistributions = newTypes[typeIndex].timeDistributions;
+      newTypes[typeIndex].timeDistributions = [...currentDistributions, {
+        startTime: '07:00',
+        endTime: '21:00',
+        percentage: 0
+      }];
     }
+    
+    setPatientTypes(newTypes);
+  };
+
+  const handleTimeDistributionChange = (
+    specialTypeId: string,
+    index: number,
+    field: keyof TimeDistribution,
+    value: string | number | null
+  ) => {
+    const newTypes = [...patientTypes];
+    const typeIndex = newTypes.findIndex(t => t.specialTypeId === specialTypeId);
+    
+    if (typeIndex === -1) return;
+    
+    const distributions = [...newTypes[typeIndex].timeDistributions];
+    
+    if (field === 'percentage') {
+      if (value === null) return;
+      
+      // Calculate total percentage excluding current distribution
+      const otherSum = distributions.reduce((sum, dist, i) => 
+        i !== index ? sum + dist.percentage : sum, 
+        0
+      );
+      
+      if (otherSum + (value as number) > 100) {
+        message.error('时间段分布总和不能超过100%');
+        return;
+      }
+    }
+    
+    distributions[index] = {
+      ...distributions[index],
+      [field]: value
+    };
+    
+    newTypes[typeIndex].timeDistributions = distributions;
+    setPatientTypes(newTypes);
+  };
+
+  const handleRemoveTimeDistribution = (specialTypeId: string, index: number) => {
+    const newTypes = [...patientTypes];
+    const typeIndex = newTypes.findIndex(t => t.specialTypeId === specialTypeId);
+    
+    if (typeIndex === -1) return;
+    
+    const distributions = [...newTypes[typeIndex].timeDistributions];
+    distributions.splice(index, 1);
+    
+    newTypes[typeIndex].timeDistributions = distributions;
     setPatientTypes(newTypes);
   };
 
@@ -170,6 +273,49 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
     message.success('模板删除成功');
   };
 
+  const handleExportExcel = () => {
+    const workbook = timeRangesToExcel(data);
+    const filename = `时间段客流配置_${new Date().toLocaleDateString()}.xlsx`;
+    try {
+      downloadExcel(workbook, filename);
+      message.success('导出成功');
+    } catch (error: unknown) {
+      message.error('导出失败');
+      console.error('Export failed:', error);
+    }
+  };
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const timeRanges = await excelToTimeRanges(file);
+      setData(timeRanges);
+      message.success('导入成功');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '导入失败');
+    }
+
+    // Clear the input value so the same file can be selected again
+    event.target.value = '';
+  };
+
+  const handleQuickInput = (type: 'mean' | 'std') => {
+    setQuickInputType(type);
+    setQuickInputVisible(true);
+  };
+
+  const handleQuickInputApply = (value: number) => {
+    if (quickInputType === null) return;
+    
+    const newData = data.map(item => ({
+      ...item,
+      [quickInputType === 'mean' ? 'meanArrivals' : 'stdDeviation']: value
+    }));
+    setData(newData);
+  };
+
   const timeRangeColumns: ColumnsType<TimeRange> = [
     {
       title: '时间段',
@@ -180,7 +326,20 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
       render: (text) => <div className="font-mono">{text}</div>
     },
     {
-      title: '到达人数平均数',
+      title: (
+        <div className="flex items-center justify-between">
+          <span>到达人数平均数</span>
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleQuickInput('mean');
+            }}
+          />
+        </div>
+      ),
       dataIndex: 'meanArrivals',
       key: 'meanArrivals',
       width: '33%',
@@ -196,7 +355,20 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
       ),
     },
     {
-      title: '到达人数标准差',
+      title: (
+        <div className="flex items-center justify-between">
+          <span>到达人数标准差</span>
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleQuickInput('std');
+            }}
+          />
+        </div>
+      ),
       dataIndex: 'stdDeviation',
       key: 'stdDeviation',
       width: '33%',
@@ -238,6 +410,25 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
                   }
                 }}
               />
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => document.getElementById('importExcel')?.click()}
+              >
+                导入Excel
+              </Button>
+              <input
+                type="file"
+                id="importExcel"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                style={{ display: 'none' }}
+              />
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportExcel}
+              >
+                导出Excel
+              </Button>
             </div>
             <div className="flex items-center gap-2">
               <Input
@@ -271,25 +462,84 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
       key: 'patientTypes',
       label: '患者类型比例',
       children: (
-        <div className="space-y-4 py-2">
-          {specialWindowTypes.map(type => (
-            <div key={type.id} className="flex items-center gap-4">
-              <div className="w-24 text-sm">{type.label}</div>
+        <div className="space-y-4">
+          <div className="text-sm text-gray-500 mb-4">
+            设置各特殊类型患者在不同时间段的分布比例，每个类型的时间段分布总和不能超过100%，剩余为普通患者。
+          </div>
+          <div className="space-y-6">
+            {specialWindowTypes.map(type => {
+              const typeConfig = patientTypes.find(t => t.specialTypeId === type.id) || {
+                specialTypeId: type.id,
+                timeDistributions: []
+              };
+              return (
+                <div key={type.id} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: type.color }}
+                    />
+                    <span className="text-lg font-medium">{type.name}</span>
+                  </div>
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-end mb-4">
+                      <Button
+                        type="dashed"
+                        icon={<PlusOutlined />}
+                        onClick={() => handleAddTimeDistribution(type.id)}
+                      >
+                        添加时间段
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {typeConfig.timeDistributions.map((dist, index) => (
+                        <div key={index} className="flex items-center gap-4">
+                          <TimePicker
+                            format="HH:mm"
+                            value={dayjs(dist.startTime, 'HH:mm')}
+                            onChange={(time) => handleTimeDistributionChange(
+                              type.id,
+                              index,
+                              'startTime',
+                              time?.format('HH:mm') || '07:00'
+                            )}
+                          />
+                          <span>至</span>
+                          <TimePicker
+                            format="HH:mm"
+                            value={dayjs(dist.endTime, 'HH:mm')}
+                            onChange={(time) => handleTimeDistributionChange(
+                              type.id,
+                              index,
+                              'endTime',
+                              time?.format('HH:mm') || '21:00'
+                            )}
+                          />
               <InputNumber
                 min={0}
                 max={100}
-                value={patientTypes.find(t => t.specialTypeId === type.id)?.ratio ?? 0}
-                onChange={(value) => handlePatientTypeRatioChange(type.id, value)}
-                className="w-24"
-                size="small"
+                            value={dist.percentage}
+                            onChange={(value) => handleTimeDistributionChange(
+                              type.id,
+                              index,
+                              'percentage',
+                              value
+                            )}
                 addonAfter="%"
               />
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleRemoveTimeDistribution(type.id, index)}
+                          />
             </div>
           ))}
-          <div className="text-xs text-gray-500 mt-2 space-y-1">
-            <div>注：</div>
-            <div>1. 比例表示该类型患者在总患者中的占比</div>
-            <div>2. 特殊类型之和必须小于等于100%，普通类型的百分比为1-特殊类型之和</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )
@@ -311,25 +561,19 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
               </div>
             </div>
             <div className="divide-y">
-              {PRESET_TEMPLATES.map(template => (
-                <div key={template.id} className="px-4 py-2 bg-gray-50">
+              {allTemplates.map(template => (
+                <div key={template.id} className={`px-4 py-2 ${template.isPreset ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                   <div className="grid grid-cols-12 items-center">
                     <div className="col-span-4 font-medium">{template.name}</div>
-                    <div className="col-span-6 text-sm text-gray-500">预设模板</div>
+                    <div className="col-span-6 text-sm text-gray-500">
+                      {template.isPreset ? '预设模板' : '自定义模板'}
+                    </div>
                     <div className="col-span-2">
+                      {template.isPreset ? (
                       <Button type="text" size="small" disabled>
                         不可删除
                       </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {savedTemplates.map(template => (
-                <div key={template.id} className="px-4 py-2 hover:bg-gray-50">
-                  <div className="grid grid-cols-12 items-center">
-                    <div className="col-span-4 font-medium">{template.name}</div>
-                    <div className="col-span-6 text-sm text-gray-500">自定义模板</div>
-                    <div className="col-span-2">
+                      ) : (
                       <Button
                         type="text"
                         size="small"
@@ -339,6 +583,7 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
                       >
                         删除
                       </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -356,6 +601,7 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
   ];
 
   return (
+    <>
     <Modal
       title="客流人数配置"
       open={visible}
@@ -380,5 +626,17 @@ export default function FlowConfig({ visible, onClose, onSave, initialData, spec
     >
       <Tabs items={items} />
     </Modal>
+
+      <QuickInputModal
+        visible={quickInputVisible}
+        onClose={() => {
+          setQuickInputVisible(false);
+          setQuickInputType(null);
+        }}
+        onApply={handleQuickInputApply}
+        title={quickInputType === 'mean' ? '到达人数平均数' : '到达人数标准差'}
+        max={quickInputType === 'mean' ? 200 : 50}
+      />
+    </>
   );
 } 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Layout, Button } from 'antd';
+import { Layout, Button, Modal } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import LabConfig from '../components/LabConfig';
 import RightPanel from '../components/RightPanel';
@@ -33,6 +33,11 @@ export default function SimulationPage() {
   const [temporaryWindows, setTemporaryWindows] = useState<TemporaryWindow[]>([]);
   const [positioningMode, setPositioningMode] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState<string | null>(null);
+  // 假设大等候区人数由此维护，实际可替换为真实数据来源
+  const [waitingPatients, setWaitingPatients] = useState(0);
+  const [alertVisible, setAlertVisible] = useState(true); // 默认弹出
+  const [alertClosed, setAlertClosed] = useState(false);
+  // const WAITING_THRESHOLD = 100; // 不再需要
 
   // 从localStorage加载临时窗口数据
   useEffect(() => {
@@ -50,6 +55,16 @@ export default function SimulationPage() {
   useEffect(() => {
     localStorage.setItem('temporaryWindows', JSON.stringify(temporaryWindows));
   }, [temporaryWindows]);
+
+  // 移除useEffect判断，直接用alertVisible控制
+  // useEffect(() => {
+  //   if (waitingPatients > WAITING_THRESHOLD && !alertVisible && !alertClosed) {
+  //     setAlertVisible(true);
+  //   }
+  //   if (waitingPatients <= WAITING_THRESHOLD) {
+  //     setAlertClosed(false); // 人数降下去后允许再次弹窗
+  //   }
+  // }, [waitingPatients, alertVisible, alertClosed]);
 
   const handleWindowConfigChange = (windowId: string, config: WindowConfig | undefined) => {
     if (!config) {
@@ -125,6 +140,19 @@ export default function SimulationPage() {
 
   return (
     <Layout className="min-h-screen h-screen">
+      {/* 报警弹窗 */}
+      <Modal
+        open={alertVisible}
+        onCancel={() => { setAlertVisible(false); setAlertClosed(true); }}
+        footer={null}
+        closable
+        centered
+        maskClosable={false}
+        maskStyle={{ background: 'transparent' }}
+      >
+        <div className="text-red-600 text-lg font-bold mb-2">大等候区人数过多</div>
+        <div className="text-gray-700 mb-2">当前大等候区人数：<b>{waitingPatients}</b></div>
+      </Modal>
       <Layout className="h-full">
         <Content className="relative h-full">
           <div className="absolute inset-0">
@@ -149,6 +177,7 @@ export default function SimulationPage() {
               />
             </div>
             <div className="w-[300px]">
+              {/* waitingPatients 传递给 RightPanel 或 DataCards，实际业务可替换 */}
               <RightPanel />
             </div>
           </div>

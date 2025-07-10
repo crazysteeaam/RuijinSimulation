@@ -9,8 +9,8 @@ interface WindowConfig {
   id: string;
   name: string;
   specialTypeId?: string;
-  processTime: number;
-  timeRanges: Array<{ start: string; end: string }>;
+    processTime: number;
+    timeRanges: Array<{ start: string; end: string }>;
 }
 
 interface MonitoringPointsProps {

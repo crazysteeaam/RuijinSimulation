@@ -49,7 +49,7 @@ export default function ActiveSpecialWindowList({ specialWindowTypes, windows }:
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Tag color="blue">{type.label}</Tag>
+                <Tag color="blue">{type.name}</Tag>
                 <span className="text-gray-500 text-sm">
                   {typeWindows.length}个窗口
                 </span>

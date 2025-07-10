@@ -1,16 +1,11 @@
 import { useState } from 'react';
 import { Modal, Form, Input, Button, InputNumber, Select, Radio, RadioChangeEvent, message } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { SpecialWindowType } from '../types/config';
 
 interface TimeRange {
   start: string;
   end: string;
-}
-
-interface SpecialWindowType {
-  id: string;
-  type: string;
-  label: string;
 }
 
 interface RoomConfigProps {
@@ -48,6 +43,7 @@ export default function RoomConfig({
   const [form] = Form.useForm();
   const [timeRanges, setTimeRanges] = useState<TimeRange[]>(initialConfig.timeRanges);
   const [isSpecialWindow, setIsSpecialWindow] = useState(!!initialConfig.specialTypeId);
+  const [specialTypeId, setSpecialTypeId] = useState<string | undefined>(initialConfig.specialTypeId);
 
   const handleAddTimeRange = () => {
     setTimeRanges([...timeRanges, { start: '08:00', end: '12:00' }]);
@@ -104,10 +100,10 @@ export default function RoomConfig({
     setTimeRanges(newRanges);
   };
 
-  const handleWindowTypeChange = (e: RadioChangeEvent) => {
-    const isSpecial = e.target.value === 'special';
-    setIsSpecialWindow(isSpecial);
-    if (!isSpecial) {
+  const handleSpecialTypeChange = (value: string | undefined) => {
+    setSpecialTypeId(value);
+    setIsSpecialWindow(!!value);
+    if (!value) {
       form.setFieldValue('specialTypeId', undefined);
     }
   };
@@ -122,6 +118,7 @@ export default function RoomConfig({
           form.resetFields();
           setTimeRanges(initialConfig.timeRanges);
           setIsSpecialWindow(!!initialConfig.specialTypeId);
+          setSpecialTypeId(initialConfig.specialTypeId);
         }}>
           重置
         </Button>,
@@ -144,7 +141,7 @@ export default function RoomConfig({
           name="windowType"
           label="窗口类型"
         >
-          <Radio.Group onChange={handleWindowTypeChange}>
+          <Radio.Group onChange={(e) => handleSpecialTypeChange(e.target.value)}>
             <Radio value="normal">普通窗口</Radio>
             <Radio value="special">特殊窗口</Radio>
           </Radio.Group>
@@ -157,12 +154,17 @@ export default function RoomConfig({
             rules={[{ required: true, message: '请选择特殊窗口类型' }]}
           >
             <Select
-              placeholder="请选择特殊窗口类型"
-              options={specialWindowTypes.map(type => ({
-                label: type.label,
-                value: type.id,
-              }))}
-            />
+              value={specialTypeId}
+              onChange={handleSpecialTypeChange}
+              allowClear
+              placeholder="选择特殊窗口类型"
+            >
+              {specialWindowTypes.map(type => (
+                <Select.Option key={type.id} value={type.id}>
+                  {type.name}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
         )}
 
