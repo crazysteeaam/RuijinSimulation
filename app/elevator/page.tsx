@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Layout, Radio, Card, Button } from 'antd';
+import { Layout, Radio, Card, Button, Modal } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import ElevatorConfig from '../components/ElevatorConfig';
 import ElevatorPoints from '../components/ElevatorPoints';
@@ -22,9 +22,50 @@ export default function ElevatorPage() {
   const router = useRouter();
   const [configValue, setConfigValue] = useState(1000);
   const [modelType, setModelType] = useState<'real' | 'single' | 'building'>('real');
+  const [alertVisible, setAlertVisible] = useState(true); // 默认弹出
+  const [alertClosed, setAlertClosed] = useState(false);
 
   return (
     <Layout className="h-screen overflow-hidden">
+      {/* 电梯报警弹窗 */}
+      <Modal
+        open={alertVisible}
+        onCancel={() => { setAlertVisible(false); setAlertClosed(true); }}
+        footer={null}
+        closable
+        centered
+        maskClosable={false}
+        maskStyle={{ background: 'transparent' }}
+        width={500}
+      >
+        <div className="space-y-4">
+          {/* 标题和时间 */}
+          <div className="flex items-center justify-between">
+            <div className="text-red-600 text-lg font-bold">🧾 报警提示内容</div>
+            <div className="text-gray-500 text-sm">⏰ [08:46:50]</div>
+          </div>
+          
+          {/* 主要报警信息 */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="text-gray-800 mb-3">
+              电梯厅【3F-东侧B厅】当前等待人数为 <span className="text-red-600 font-bold text-lg">26人</span>，
+              已超过安全预警阈值（20人）。
+            </div>
+          </div>
+          
+          {/* 操作按钮 */}
+          <div className="flex justify-end space-x-2">
+            <Button 
+              type="primary" 
+              danger
+              size="small"
+              onClick={() => { setAlertVisible(false); setAlertClosed(true); }}
+            >
+              已了解
+            </Button>
+          </div>
+        </div>
+      </Modal>
       <Content className="relative h-full">
         <div 
           className="absolute inset-0 bg-cover bg-center"
@@ -39,7 +80,7 @@ export default function ElevatorPage() {
                   onSpeedChange={setConfigValue}
                 />
               </div>
-              <ElevatorPoints modelType={modelType} />
+              <ElevatorPoints />
             </div>
             <div className="w-[400px] h-full overflow-auto bg-transparent">
               <ElevatorStats

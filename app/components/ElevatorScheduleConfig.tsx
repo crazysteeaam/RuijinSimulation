@@ -241,6 +241,23 @@ export default function ElevatorScheduleConfig({
     };
   };
 
+  // 判断时间是否在次日区间（0:00-6:30，包含06:30）
+  const isNextDayTime = (time: string) => {
+    const t = dayjs(`2000-01-01 ${time}`);
+    const start = dayjs('2000-01-01 00:00');
+    const end = dayjs('2000-01-01 06:30');
+    return (t.isAfter(start) || t.isSame(start)) && (t.isBefore(end) || t.isSame(end));
+  };
+
+  // 获取时间显示文本，0:00-6:30区间加“次日”，第一个时间段的开始时间除外
+  const getTimeDisplayText = (startTime: string, endTime: string, isFirst: boolean = false) => {
+    const showStartNextDay = !isFirst && isNextDayTime(startTime);
+    const showEndNextDay = isNextDayTime(endTime);
+    const startLabel = showStartNextDay ? `次日 ${startTime}` : startTime;
+    const endLabel = showEndNextDay ? `次日 ${endTime}` : endTime;
+    return `${startLabel} 至 ${endLabel}`;
+  };
+
   const items: TabsProps['items'] = [
     {
       key: 'schedule',
@@ -249,17 +266,14 @@ export default function ElevatorScheduleConfig({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {intervals.map((interval, index) => {
             const timeRange = getTimeRange(index);
+            const timeDisplayText = getTimeDisplayText(timeRange.start, timeRange.end, index === 0);
             return (
               <div key={index} style={{ border: '1px solid #eee', borderRadius: 6, padding: 12, background: '#fafbfc', marginBottom: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontWeight: 500, fontSize: 15, marginRight: 12 }}>第{index + 1}时间段</span>
-                  <InputNumber
-                    value={timeRange.start}
-                    disabled
-                    style={{ width: 70, marginRight: 4, background: '#f5f5f5' }}
-                    stringMode
-                  />
-                  <span style={{ margin: '0 4px' }}>至</span>
+                  <span style={{ marginRight: 8, fontSize: 14, color: '#666' }}>
+                    {timeDisplayText}
+                  </span>
                   <TimePicker
                     format="HH:mm"
                     value={dayjs(interval.time, 'HH:mm')}
@@ -293,7 +307,9 @@ export default function ElevatorScheduleConfig({
           <div style={{ border: '1px solid #eee', borderRadius: 6, padding: 12, background: '#fafbfc', marginTop: 8 }}>
             <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 8 }}>
               最后一个时间段
-              <span style={{ marginLeft: 8 }}>{intervals[intervals.length - 1].time} 至 次日 06:30</span>
+              <span style={{ marginLeft: 8, fontSize: 14, color: '#666' }}>
+                {getTimeDisplayText(intervals[intervals.length - 1].time, '06:30', false)}
+              </span>
             </div>
             {renderLastIntervalFloorSelect()}
           </div>

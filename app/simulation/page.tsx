@@ -34,7 +34,7 @@ export default function SimulationPage() {
   const [positioningMode, setPositioningMode] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState<string | null>(null);
   // 假设大等候区人数由此维护，实际可替换为真实数据来源
-  const [waitingPatients, setWaitingPatients] = useState(0);
+  const [waitingPatients, setWaitingPatients] = useState(248);
   const [alertVisible, setAlertVisible] = useState(true); // 默认弹出
   const [alertClosed, setAlertClosed] = useState(false);
   // const WAITING_THRESHOLD = 100; // 不再需要
@@ -149,9 +149,55 @@ export default function SimulationPage() {
         centered
         maskClosable={false}
         maskStyle={{ background: 'transparent' }}
+        width={500}
       >
-        <div className="text-red-600 text-lg font-bold mb-2">大等候区人数过多</div>
-        <div className="text-gray-700 mb-2">当前大等候区人数：<b>{waitingPatients}</b></div>
+        <div className="space-y-4">
+          {/* 标题和时间 */}
+          <div className="flex items-center justify-between">
+            <div className="text-red-600 text-lg font-bold">🧾 报警提示内容</div>
+            <div className="text-gray-500 text-sm">⏰ [08:35:12]</div>
+          </div>
+          
+          {/* 主要报警信息 */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="text-gray-800 mb-3">
+              当前大等候区内等候人数为 <span className="text-red-600 font-bold text-lg">{waitingPatients}人</span>，
+              已超出预警阈值（200人），请及时关注并疏导。
+            </div>
+            
+            {/* 患者分类统计 */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">● 常规体检患者：</span>
+                <span className="font-semibold">152 人</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">● 老年体检患者：</span>
+                <span className="font-semibold">36 人</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">● 单项复查患者：</span>
+                <span className="font-semibold">22 人</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">● VIP 高端体检患者：</span>
+                <span className="font-semibold">15 人</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* 操作按钮 */}
+          <div className="flex justify-end space-x-2">
+            <Button 
+              type="primary" 
+              danger
+              size="small"
+              onClick={() => { setAlertVisible(false); setAlertClosed(true); }}
+            >
+              已了解
+            </Button>
+          </div>
+        </div>
       </Modal>
       <Layout className="h-full">
         <Content className="relative h-full">
